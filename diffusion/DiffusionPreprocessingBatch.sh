@@ -1,11 +1,19 @@
 #!/bin/bash
 
+# Original script:
+# https://github.com/Washington-University/HCPpipelines/blob/master/Examples/Scripts/DiffusionPreprocessingBatch.sh
+#
+# This version modified to include additional options and for HCP-Aging data. Only does local execution.
+# Defaults to no GPU.
+
 get_batch_options() {
     local arguments=("$@")
 
     unset command_line_specified_study_folder
     unset command_line_specified_subj
     unset command_line_gdcoeffs
+    unset command_line_eddy_gpu
+    unset command_line_number_of_cpus
 
     local index=0
     local numArgs=${#arguments[@]}
@@ -27,6 +35,10 @@ get_batch_options() {
                 command_line_gdcoeffs=${argument#*=}
                 index=$(( index + 1 ))
                 ;;
+            --EddyGPU
+                command_line_eddy_gpu=${argument#*=}
+            --NumCPUs
+                command_line_number_of_cpus=${argument#*=}
 	    *)
 		echo ""
 		echo "ERROR: Unrecognized Option: ${argument}"
@@ -44,8 +56,9 @@ fi
 
 get_batch_options "$@"
 
-EnvironmentScript="${HCPPIPEDIR}/SetUpHCPPipeline.sh" #Pipeline environment script
-Gdcoeffs="NONE"
+# EnvironmentScript="${HCPPIPEDIR}/SetUpHCPPipeline.sh" #Pipeline environment script
+GDCoeffs="NONE"
+GPUOption="--no-gpu"
 
 if [ -n "${command_line_specified_study_folder}" ]; then
     StudyFolder="${command_line_specified_study_folder}"
@@ -61,16 +74,32 @@ else
 fi
 
 if [ -n "${command_line_gdcoeffs}" ]; then
-    Gdcoeffs="${command_line_gdcoeffs}"
+    GDCoeffs="${command_line_gdcoeffs}"
 fi
 
+if [[ -n "${command_line_eddy_gpu}" ]]; then
+    GPUOption=""
+fi
 
 # Requirements for this script
+# (PAC) Container appears to handle this - but need to set multithreading
 #  installed versions of: FSL, FreeSurfer, Connectome Workbench (wb_command), gradunwarp (HCP version)
 #  environment: HCPPIPEDIR, FSLDIR, FREESURFER_HOME, CARET7DIR, PATH for gradient_unwarp.py
-
 #Set up pipeline environment variables and software
-source ${EnvironmentScript}
+# source ${EnvironmentScript}
+
+numProcs=1
+
+if [[ -n "${command_line_number_of_cpus}" ]]; then
+    numProcs=${command_line_number_of_cpus}
+fi
+
+export NSLOTS=${numProcs}
+export OMP_NUM_THREADS=${numProcs}
+
+if [[ $numProcs -eq 1 ]]; then
+    echo "WARNING - single-threaded execution will take a LONG time, consider submitting with more cores (eg bsub -n 4)"
+fi
 
 # Log the originating call
 echo "$@"
@@ -81,10 +110,11 @@ echo "$@"
     QUEUE=""
 #fi
 
+# Change to, eg, "echo" to print commands that would be run instead of running them
 PRINTCOM=""
 
 
-########################################## INPUTS ########################################## 
+########################################## INPUTS ##########################################
 
 #Scripts called by this script do assume they run on the outputs of the PreFreeSurfer Pipeline,
 #which is a prerequisite for this pipeline
@@ -156,7 +186,7 @@ for Subject in $Subjlist ; do
       --posData="${PosData}" --negData="${NegData}" \
       --path="${StudyFolder}" --subject="${SubjectID}" \
       --echospacing="${EchoSpacing}" --PEdir=${PEdir} \
-      --gdcoeffs="${Gdcoeffs}" \
+      --gdcoeffs="${GDCoeffs}" $gpuOption \
       --printcom=$PRINTCOM
 
 done
