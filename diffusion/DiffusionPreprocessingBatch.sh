@@ -31,14 +31,18 @@ get_batch_options() {
                 command_line_specified_subj=${argument#*=}
                 index=$(( index + 1 ))
                 ;;
-            --GDCoeffs)
+            --GDCoeffs=*)
                 command_line_gdcoeffs=${argument#*=}
                 index=$(( index + 1 ))
                 ;;
-            --EddyGPU
-                command_line_eddy_gpu=${argument#*=}
-            --NumCPUs
+            --EddyGPU)
+                command_line_eddy_gpu=1
+                index=$(( index + 1 ))
+                ;;
+            --NumCPUs=*)
                 command_line_number_of_cpus=${argument#*=}
+                index=$(( index + 1 ))
+                ;;
 	    *)
 		echo ""
 		echo "ERROR: Unrecognized Option: ${argument}"
@@ -143,7 +147,7 @@ for Subject in $Subjlist ; do
 
   #Input Variables
   SubjectID="$Subject" #Subject ID Name
-  RawDataDir="$StudyFolder/$SubjectID/unprocessed/3T/Diffusion" #Folder where unprocessed diffusion data are
+  RawDataDir="$StudyFolder/$SubjectID/unprocessed/Diffusion" #Folder where unprocessed diffusion data are
 
   # PosData is a list of files (separated by ‘@‘ symbol) having the same phase encoding (PE) direction
   # and polarity. Similarly for NegData, which must have the opposite PE polarity of PosData.
@@ -182,11 +186,19 @@ for Subject in $Subjlist ; do
 
   PEdir=2 #Use 1 for Left-Right Phase Encoding, 2 for Anterior-Posterior
 
-  ${HCPPIPEDIR}/DiffusionPreprocessing/DiffPreprocPipeline.sh \
+  cmd="${HCPPIPEDIR}/DiffusionPreprocessing/DiffPreprocPipeline.sh \
       --posData="${PosData}" --negData="${NegData}" \
       --path="${StudyFolder}" --subject="${SubjectID}" \
       --echospacing="${EchoSpacing}" --PEdir=${PEdir} \
       --gdcoeffs="${GDCoeffs}" $gpuOption \
-      --printcom=$PRINTCOM
+      --printcom=$PRINTCOM"
+
+  echo "
+--- DiffPreprocPipeline script call ---
+$cmd
+---
+"
+
+$cmd
 
 done

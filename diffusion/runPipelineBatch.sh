@@ -76,7 +76,7 @@ session=""
 studyFolder=""
 userBindPoints=""
 
-while getopts "B:g:i:s:h" opt; do
+while getopts "B:g:i:s:hp" opt; do
   case $opt in
     B) userBindPoints=$OPTARG;;
     g) gdCoeffs=$OPTARG;;
@@ -92,16 +92,18 @@ done
 shift $((OPTIND-1))
 
 # Script to run in container image
-pipelineScript="${scriptDir}/DiffusionPreprocessingBatch.sh"
+localPipelineScript="${scriptDir}/DiffusionPreprocessingBatch.sh"
 image="/project/detre_1/containers/hcppipelines-4.3.0-3.sif"
+# Mount point for script inside container
+pipelineScript="/opt/runScript/DiffusionPreprocessingBatch.sh"
 
 if [[ ! -f $image ]]; then
   echo "Cannot find requested container $image"
   exit 1
 fi
 
-if [[ ! -d "${studyFolder}/${session}/unprocessed/3T/Diffusion" ]]; then
-  echo "Cannot find diffusion data in ${studyFolder}/${session}/unprocessed/3T/Diffusion"
+if [[ ! -d "${studyFolder}/${session}/unprocessed/Diffusion" ]]; then
+  echo "Cannot find diffusion data in ${studyFolder}/${session}/unprocessed/Diffusion"
   exit 1
 fi
 
@@ -118,8 +120,8 @@ fi
 sngl=$( which singularity ) ||
     ( echo "Cannot find singularity executable. Try module load singularity/3.8.3"; exit 1 )
 
-if [[ ! -d "$subjectsDir" ]]; then
-  echo "Cannot find input directory $subjectsDir"
+if [[ ! -d "$studyFolder" ]]; then
+  echo "Cannot find input directory $studyFolder"
   exit 1
 fi
 
@@ -146,16 +148,17 @@ export SINGULARITYENV_TMPDIR="/tmp"
 singularityArgs="--cleanenv \
   --no-home \
   -B ${jobTmpDir}:/tmp \
+  -B ${localPipelineScript}:${pipelineScript}
   -B ${studyFolder}:/data/input"
 
 # Args we pass to the pipeline script
-pipelineScriptArgs="--StudyFolder=/data/input --Subject=${session} --NumCPUs ${LSB_DJOB_NUMPROC}"
+pipelineScriptArgs="--StudyFolder=/data/input --Subject=${session} --NumCPUs=${LSB_DJOB_NUMPROC}"
 
 if [[ -f "$gdCoeffs" ]]; then
   singularityArgs="$singularityArgs \
   -B ${gdCoeffs}:/metadata/gdcoeffs/coeff.grad"
   pipelineScriptArgs="$pipelineScriptArgs \
-  --GDCoeffs /metadata/gdcoeffs/coeff.grad"
+  --GDCoeffs=/metadata/gdcoeffs/coeff.grad"
 fi
 
 if [[ -n "$userBindPoints" ]]; then
@@ -187,7 +190,7 @@ singularity inspect $image
 echo "---
 "
 
-cmd="singularity run \
+cmd="singularity exec \
   $singularityArgs \
   $image \
   $pipelineScript \
