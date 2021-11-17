@@ -190,7 +190,7 @@ for Subject in $Subjlist ; do
       --posData="${PosData}" --negData="${NegData}" \
       --path="${StudyFolder}" --subject="${SubjectID}" \
       --echospacing="${EchoSpacing}" --PEdir=${PEdir} \
-      --gdcoeffs="${GDCoeffs}" $gpuOption \
+      --gdcoeffs="${GDCoeffs}" ${GPUOption} \
       --printcom=$PRINTCOM"
 
   echo "
