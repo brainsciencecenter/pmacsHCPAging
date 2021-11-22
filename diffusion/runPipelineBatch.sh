@@ -31,6 +31,10 @@ Required args:
     Input directory on the local file system. Will be bound to /data/input inside the container and passed
     to the HCP scripts as the StudyFolder.
 
+  -f secretVar
+     FIPS mode. Pass the name of the secret variable that enables FreeSurfer to run. This is required on systems
+     with FIPS mode (including BSC) but optional elsewhere.
+
   -s session
     Imaging session to process, under /path/to/data/session. Will be passed to the HCP script as the Subject.
 
@@ -75,10 +79,12 @@ printOnly=0
 session=""
 studyFolder=""
 userBindPoints=""
+fsSecret=""
 
-while getopts "B:g:i:s:hp" opt; do
+while getopts "B:f:g:i:s:hp" opt; do
   case $opt in
     B) userBindPoints=$OPTARG;;
+    f) fsSecret=${OPTARG};;
     g) gdCoeffs=$OPTARG;;
     h) help; exit 1;;
     i) studyFolder=$OPTARG;;
@@ -143,6 +149,10 @@ fi
 # module DEV/singularity sets SINGULARITYENV_TMPDIR=/scratch
 # We will make a temp dir there and bind to /tmp in the container
 export SINGULARITYENV_TMPDIR="/tmp"
+
+if [[ -n "$fsSecret" ]]; then
+  export SINGULARITYENV_${fsSecret}=1
+fi
 
 # singularity args
 singularityArgs="--cleanenv \
