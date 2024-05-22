@@ -157,6 +157,7 @@ fi
 # singularity args
 singularityArgs="--cleanenv \
   --no-home \
+  --pwd /data/input/${session} \
   -B ${jobTmpDir}:/tmp \
   -B ${localPipelineScript}:${pipelineScript}
   -B ${studyFolder}:/data/input"
